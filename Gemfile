@@ -13,3 +13,10 @@ group :development do
   gem 'bundler'
 end 
 gem "rspec", "~> 3.13"
+
+gem "mini_magick", "~> 5.2"
+gem "httparty", "~> 0.23.1"
+
+gem "airtable", "~> 0.0.9"
+
+gem "dotenv", "~> 3.1"
