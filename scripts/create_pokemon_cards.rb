@@ -2,8 +2,8 @@ require 'airtable'
 require 'dotenv'
 require 'awesome_print'
 require 'active_support/core_ext/hash'
-require_relative 'src/pokemon_card_generator'
-require_relative 'src/guest'
+require_relative '../src/pokemon_card_generator'
+require_relative '../src/guest'
 
 Dotenv.load
 
