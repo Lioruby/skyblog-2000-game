@@ -3,3 +3,4 @@
 .Gemfile.lock
 output/*
 temp_photo_*
+printing_output/*
