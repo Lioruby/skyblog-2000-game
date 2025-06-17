@@ -1,3 +1,5 @@
 .env
 .bundle
 .Gemfile.lock
+output/*
+temp_photo_*

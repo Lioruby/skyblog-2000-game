@@ -138,13 +138,10 @@ class PokemonCard
     
     new_dimensions = calculate_cover_dimensions(original_width, original_height)
     
-    # Redimensionner
     user_photo.resize "#{new_dimensions[:width]}x#{new_dimensions[:height]}!"
     
-    # Calculer les offsets pour centrer
     offsets = calculate_center_offsets(new_dimensions)
     
-    # Crop depuis le centre calculé
     user_photo.crop "#{FRAME_CONFIG[:width]}x#{FRAME_CONFIG[:height]}+#{offsets[:x]}+#{offsets[:y]}"
     
     puts "✅ Photo redimensionnée en mode cover: #{user_photo.width}x#{user_photo.height}"
@@ -155,14 +152,12 @@ class PokemonCard
     original_ratio = original_width / original_height
     
     if original_ratio > target_ratio
-      # Image plus large : redimensionner selon la hauteur
       scale_factor = FRAME_CONFIG[:height] / original_height
       {
         width: (original_width * scale_factor).to_i,
         height: FRAME_CONFIG[:height]
       }
     else
-      # Image plus haute : redimensionner selon la largeur
       scale_factor = FRAME_CONFIG[:width] / original_width
       {
         width: FRAME_CONFIG[:width],
@@ -189,7 +184,7 @@ class PokemonCard
   end
 
   def add_username_to_card(card)
-    username = "@#{@record[:instagram].gsub("@", "")}"
+    username = "@#{@record[:instagram].downcase.gsub("@", "")}"
     
     card.combine_options do |c|
       c.font USERNAME_CONFIG[:font]
@@ -225,7 +220,6 @@ class PokemonCard
     current_line = ""
     
     words.each do |word|
-      # Si ajouter ce mot dépasse la limite, on commence une nouvelle ligne
       if (current_line + " " + word).length > max_chars_per_line && !current_line.empty?
         lines << current_line.strip
         current_line = word
@@ -234,13 +228,10 @@ class PokemonCard
       end
     end
     
-    # Ajouter la dernière ligne
     lines << current_line.strip unless current_line.empty?
     
-    # Limiter à un maximum de 3 lignes pour éviter que ça déborde
     lines = lines.first(3)
     
-    # Joindre avec des retours à la ligne
     lines.join("\n")
   end
 
@@ -298,7 +289,7 @@ class PokemonCard
     when "Femme"
       "assets/card_template_female.png"
     else
-      "assets/card_template_male.png" # Par défaut
+      "assets/card_template_male.png"
     end
   end
 end
