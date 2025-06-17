@@ -36,12 +36,12 @@ class PokemonCard
     max_chars_per_line: 30
   }.freeze
 
-  def initialize(record)
-    @record = record
+  def initialize(guest)
+    @guest = guest
   end
 
   def generate_cards
-    puts "\n🎴 Génération de la carte Pokemon pour #{@record[:instagram]}..."
+    puts "\n🎴 Génération de la carte Pokemon pour #{@guest.get_username}..."
     
     ensure_output_directory
     
@@ -52,21 +52,13 @@ class PokemonCard
       user_photo = process_user_photo(temp_photo_path)
 
 
-      questions = [
-        @record[:question],
-        @record[:question_2],
-        @record[:question_3],
-        @record[:question_4],
-        @record[:question_5]
-      ].compact
-
       card = load_template
-      add_pv_to_card(card, @record[:instagram])
+      add_pv_to_card(card, @guest.get_username)
       add_username_to_card(card)
       
       generated_files = []
       
-      questions.each do |question|
+      @guest.questions.each do |question|
         next if question.nil? || question.strip.empty?
         
         final_card = compose_card(card, user_photo)
@@ -95,7 +87,7 @@ class PokemonCard
   end
 
   def download_user_photo
-    user_photos = @record[:photo]
+    user_photos = @guest.photo
     if user_photos.nil? || user_photos.empty?
       puts "❌ Aucune photo trouvée pour cet utilisateur"
       return nil
@@ -115,7 +107,7 @@ class PokemonCard
   end
 
   def generate_temp_filename
-    "temp_photo_#{@record[:instagram]}.jpg"
+    "temp_photo_#{@guest.username}.jpg"
   end
 
   def load_template
@@ -184,7 +176,7 @@ class PokemonCard
   end
 
   def add_username_to_card(card)
-    username = "@#{@record[:instagram].downcase.gsub("@", "")}"
+    username = "@#{@guest.get_username}"
     
     card.combine_options do |c|
       c.font USERNAME_CONFIG[:font]
@@ -270,7 +262,7 @@ class PokemonCard
   end
 
   def generate_output_filename(question)
-    "output/pokemon_card_#{@record[:instagram]}_#{question.gsub(" ", "_")}.png"
+    "output/pokemon_card_#{@guest.get_username}_#{question.gsub(" ", "_")}.png"
   end
 
   def cleanup_temp_file(temp_photo_path)
@@ -283,7 +275,7 @@ class PokemonCard
   end
   
   def template_path
-    case @record[:genre]
+    case @guest.gender
     when "Homme"
       "assets/card_template_male.png"
     when "Femme"
