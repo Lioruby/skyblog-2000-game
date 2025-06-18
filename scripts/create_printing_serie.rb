@@ -7,20 +7,21 @@ CARD_HEIGHT_CM = 8.8
 
 # Conversion cm vers pixels (300 DPI)
 DPI = 300
-CARD_WIDTH_PX = (CARD_WIDTH_CM * DPI / 2.54).to_i  # 744px
-CARD_HEIGHT_PX = (CARD_HEIGHT_CM * DPI / 2.54).to_i # 1039px
+# Utilisons les dimensions réelles des PNG au lieu de forcer un redimensionnement
+CARD_WIDTH_PX = 972   # Dimensions réelles des PNG générés
+CARD_HEIGHT_PX = 1358 # Dimensions réelles des PNG générés
 
 # Format A4 en pixels (300 DPI)
 A4_WIDTH_PX = (21.0 * DPI / 2.54).to_i   # 2480px
 A4_HEIGHT_PX = (29.7 * DPI / 2.54).to_i  # 3508px
 
-# Calcul des marges et positions
+# Calcul des marges et positions - ajusté pour les vraies dimensions
 MARGIN_PX = 60  # Marge pour la découpe
-CARDS_PER_ROW = 3
-CARDS_PER_COL = 3
+CARDS_PER_ROW = 2  # Seulement 2 cartes par ligne car elles sont plus grandes
+CARDS_PER_COL = 2  # Seulement 2 cartes par colonne
 CARDS_PER_PAGE = CARDS_PER_ROW * CARDS_PER_COL
 
-# Espacement entre les cartes
+# Espacement entre les cartes - recalculé
 SPACE_X = (A4_WIDTH_PX - 2 * MARGIN_PX - CARDS_PER_ROW * CARD_WIDTH_PX) / (CARDS_PER_ROW - 1)
 SPACE_Y = (A4_HEIGHT_PX - 2 * MARGIN_PX - CARDS_PER_COL * CARD_HEIGHT_PX) / (CARDS_PER_COL - 1)
 
@@ -28,6 +29,10 @@ def create_printing_serie
   puts "🎴 Génération des PDFs d'impression en série..."
   
   card_files = Dir.glob("output/pokemon_card_*.png").sort
+  verso_card = Dir.glob("assets/card_verso.png")
+
+  
+
   
   puts "📊 #{card_files.length} cartes trouvées"
   puts "📐 Format: #{CARD_WIDTH_CM}cm x #{CARD_HEIGHT_CM}cm"
@@ -36,6 +41,10 @@ def create_printing_serie
   FileUtils.mkdir_p('printing_output')
   
   card_groups = card_files.each_slice(CARDS_PER_PAGE).to_a
+
+  verso_card_group = verso_card * CARDS_PER_PAGE
+  verso_filename = "assets/verso_all_page.pdf"
+  create_page_with_convert(verso_card_group, verso_filename)
   
   puts "📚 #{card_groups.length} pages à générer"
   
@@ -58,10 +67,10 @@ def create_printing_serie
 end
 
 def create_page_with_convert(cards_batch, output_filename)
-  MiniMagick::Tool::Convert.new do |convert|
-    convert << "-size" << "#{A4_WIDTH_PX}x#{A4_HEIGHT_PX}"
-    convert << "-background" << "white"
-    convert << "xc:white"
+  MiniMagick::Tool::Magick.new do |magick|
+    magick << "-size" << "#{A4_WIDTH_PX}x#{A4_HEIGHT_PX}"
+    magick << "-background" << "white"
+    magick << "xc:white"
     
     cards_batch.each_with_index do |card_path, card_index|
       row = card_index / CARDS_PER_ROW
@@ -70,17 +79,21 @@ def create_page_with_convert(cards_batch, output_filename)
       x = MARGIN_PX + col * (CARD_WIDTH_PX + SPACE_X)
       y = MARGIN_PX + row * (CARD_HEIGHT_PX + SPACE_Y)
       
-      convert << "(" << card_path
-      convert << "-resize" << "#{CARD_WIDTH_PX}x#{CARD_HEIGHT_PX}!"
-      convert << ")"
-      convert << "-geometry" << "+#{x}+#{y}"
-      convert << "-composite"
+      magick << "(" << card_path << ")"
+      magick << "-geometry" << "+#{x}+#{y}"
+      magick << "-composite"
     end
     
-    convert << "-density" << "300"
-    convert << "-colorspace" << "sRGB"
-    convert << "-units" << "PixelsPerInch"
-    convert << output_filename
+    # Paramètres de qualité optimisés avec magick moderne
+    magick << "-density" << "300"
+    magick << "-colorspace" << "sRGB"
+    magick << "-units" << "PixelsPerInch"
+    magick << "-compress" << "zip"      # Compression sans perte
+    magick << "-quality" << "100"       # Qualité maximale
+    magick << "-depth" << "8"           # Profondeur de couleur
+    magick << "-type" << "TrueColor"    # Type de couleur
+    magick << "-alpha" << "remove"      # Supprime le canal alpha pour le PDF
+    magick << output_filename
   end
 end
 
@@ -117,7 +130,7 @@ def add_card_to_page(page, card_path, x, y)
   card.depth 8
   card.type "TrueColor"
   
-  card.resize "#{CARD_WIDTH_PX}x#{CARD_HEIGHT_PX}!"
+  # Pas de redimensionnement forcé - garder la qualité originale !
   
   page.colorspace "sRGB"
   page.depth 8
@@ -153,7 +166,7 @@ def save_page_as_pdf(page, filename)
 end
 
 def merge_series
-  puts "🔗 Fusion de tous les rectos avec versos intercalés..."
+  puts "🔗 Fusion par séries de 50 pages avec versos intercalés..."
   
   recto_files = Dir.glob("printing_output/*_recto.pdf").sort
   verso_path = "assets/verso_all_page.pdf"
@@ -168,36 +181,60 @@ def merge_series
     return
   end
   
+  # Vérifier que qpdf est installé
+  unless system("which qpdf > /dev/null 2>&1")
+    puts "❌ qpdf n'est pas installé. Installez-le avec: brew install qpdf"
+    return
+  end
+  
   puts "📊 #{recto_files.length} pages recto trouvées"
   puts "📄 Verso utilisé: #{verso_path}"
   
-  final_pdf_path = "printing_output/cartes_complete_serie.pdf"
+  # Créer le dossier complete_serie
+  FileUtils.mkdir_p('complete_serie')
+  
+  # Diviser les fichiers recto en groupes de 25 (25 recto + 25 verso = 50 pages)
+  pages_per_serie = 100  # 25 recto + 25 verso = 50 pages totales
+  recto_groups = recto_files.each_slice(pages_per_serie).to_a
+  
+  puts "📚 #{recto_groups.length} séries à générer (max 50 pages chacune)"
+  
+  recto_groups.each_with_index do |recto_batch, serie_index|
+    serie_number = serie_index + 1
+    serie_filename = "complete_serie/serie_#{serie_number}.pdf"
+    
+    puts "\n🎨 Série #{serie_number}/#{recto_groups.length} (#{recto_batch.length * 2} pages: #{recto_batch.length} recto + #{recto_batch.length} verso)..."
 
-  MiniMagick::Tool::Convert.new do |convert|
-    recto_files.each do |recto_file|
-      convert << recto_file
-      convert << verso_path
-      
+    # Construire la liste des fichiers en intercalant recto et verso
+    files_list = []
+    recto_batch.each do |recto_file|
+      files_list << recto_file
+      files_list << verso_path
       puts "   ✅ Ajouté: #{File.basename(recto_file)} + verso"
     end
     
-    convert << "-density" << "300"
-    convert << "-colorspace" << "sRGB"
-    convert << "-compress" << "jpeg"
-    convert << "-quality" << "90"
-    convert << final_pdf_path
+    # Utiliser qpdf pour merger sans perte de qualité
+    qpdf_command = "qpdf --empty --pages #{files_list.join(' ')} -- \"#{serie_filename}\""
+    
+    if system(qpdf_command)
+      puts "   💾 Série #{serie_number} sauvegardée avec qpdf: #{serie_filename}"
+    else
+      puts "   ❌ Erreur lors de la création de la série #{serie_number}"
+    end
   end
   
-  puts "\n🎉 Fusion terminée!"
-  puts "📂 Fichier généré: #{final_pdf_path}"
-  puts "📖 #{recto_files.length * 2} pages totales (recto + verso alternés)"
+  puts "\n🎉 Fusion par séries terminée avec qpdf!"
+  puts "📂 Fichiers générés dans: complete_serie/"
+  puts "📊 #{recto_groups.length} fichiers de série créés"
+  puts "📖 Maximum 50 pages par fichier (25 recto + 25 verso intercalés)"
   puts "📋 Instructions d'impression:"
-  puts "   1. Imprimez toutes les pages du PDF"
+  puts "   1. Imprimez chaque série séparément"
   puts "   2. Le recto et verso sont déjà dans le bon ordre"
   puts "   3. Découpez en suivant les marges"
+  puts "✨ Note: qpdf préserve parfaitement la qualité originale!"
 end
 
 # Décommentez la fonction que vous voulez utiliser :
 
-create_printing_serie
+# create_printing_serie
 merge_series
