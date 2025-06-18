@@ -32,8 +32,8 @@ class PokemonCard
     font: "Arial-Bold",
     pointsize: "42",
     fill: "black",
-    position: "+160+850",
-    max_chars_per_line: 25
+    position: "+170+850",
+    max_chars_per_line: 38
   }.freeze
 
   def initialize(guest)
@@ -150,11 +150,25 @@ class PokemonCard
     
     MiniMagick::Tool::Convert.new do |convert|
       convert << base_card_path
-      convert << "-font" << QUESTION_CONFIG[:font]
+      
+      # Ajouter "Question:" en Bold
+      convert << "-font" << "Arial-Bold"
       convert << "-pointsize" << QUESTION_CONFIG[:pointsize]
       convert << "-fill" << QUESTION_CONFIG[:fill]
       convert << "-gravity" << "NorthWest"
-      convert << "-annotate" << QUESTION_CONFIG[:position] << "Question: #{formatted_question}"
+      convert << "-annotate" << QUESTION_CONFIG[:position] << "Question:"
+      
+      # Calculer la position pour le texte de la question (décalé vers le bas)
+      question_y_offset = QUESTION_CONFIG[:position].split('+')[2].to_i + 50  # +50px vers le bas
+      question_position = "+#{QUESTION_CONFIG[:position].split('+')[1]}+#{question_y_offset}"
+      
+      # Ajouter le texte de la question en Semibold
+      convert << "-font" << "Arial"
+      convert << "-pointsize" << QUESTION_CONFIG[:pointsize]
+      convert << "-fill" << QUESTION_CONFIG[:fill]
+      convert << "-gravity" << "NorthWest"
+      convert << "-annotate" << question_position << formatted_question
+      
       convert << output_path
     end
   end
@@ -232,7 +246,14 @@ class PokemonCard
   end
 
   def generate_output_filename(question)
-    "output/pokemon_card_#{@guest.get_username}_#{question.gsub(" ", "_")}.png"
+    sanitized_question = question
+      .gsub(/[\/\\:*?"<>|]/, '_')
+      .gsub(/[·•]/, '_')
+      .gsub(/\s+/, '_')
+      .gsub(/_+/, '_')
+      .gsub(/^_|_$/, '')
+    
+    "output/pokemon_card_#{@guest.get_username}_#{sanitized_question}.png"
   end
 
   def cleanup_temp_file(temp_photo_path)
