@@ -7,18 +7,16 @@ CARD_HEIGHT_CM = 8.8
 
 # Conversion cm vers pixels (300 DPI)
 DPI = 300
-# Utilisons les dimensions réelles des PNG au lieu de forcer un redimensionnement
-CARD_WIDTH_PX = 972   # Dimensions réelles des PNG générés
-CARD_HEIGHT_PX = 1358 # Dimensions réelles des PNG générés
-
+CARD_WIDTH_PX = (CARD_WIDTH_CM * DPI / 2.54).to_i 
+CARD_HEIGHT_PX = (CARD_HEIGHT_CM * DPI / 2.54).to_i
 # Format A4 en pixels (300 DPI)
 A4_WIDTH_PX = (21.0 * DPI / 2.54).to_i   # 2480px
 A4_HEIGHT_PX = (29.7 * DPI / 2.54).to_i  # 3508px
 
-# Calcul des marges et positions - ajusté pour les vraies dimensions
+# Calcul des marges et positions
 MARGIN_PX = 60  # Marge pour la découpe
-CARDS_PER_ROW = 2  # Seulement 2 cartes par ligne car elles sont plus grandes
-CARDS_PER_COL = 2  # Seulement 2 cartes par colonne
+CARDS_PER_ROW = 3
+CARDS_PER_COL = 3
 CARDS_PER_PAGE = CARDS_PER_ROW * CARDS_PER_COL
 
 # Espacement entre les cartes - recalculé
@@ -79,7 +77,9 @@ def create_page_with_convert(cards_batch, output_filename)
       x = MARGIN_PX + col * (CARD_WIDTH_PX + SPACE_X)
       y = MARGIN_PX + row * (CARD_HEIGHT_PX + SPACE_Y)
       
-      magick << "(" << card_path << ")"
+      magick << "(" << card_path
+      magick << "-resize" << "#{CARD_WIDTH_PX}x#{CARD_HEIGHT_PX}!"
+      magick << ")"
       magick << "-geometry" << "+#{x}+#{y}"
       magick << "-composite"
     end
@@ -236,5 +236,5 @@ end
 
 # Décommentez la fonction que vous voulez utiliser :
 
-# create_printing_serie
-merge_series
+create_printing_serie
+# merge_series
